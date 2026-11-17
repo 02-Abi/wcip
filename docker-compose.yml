@@ -1,0 +1,40 @@
+# ============================================================
+# WCIP — local development stack
+# Phase 2: PostgreSQL only. Django & Redis added in later phases.
+#
+# Common commands:
+#   docker compose up -d         start (keeps data)
+#   docker compose ps            status
+#   docker compose logs -f db    logs
+#   docker compose down          stop (keep volume)
+#   docker compose down -v       stop and WIPE data
+# ============================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wcip_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wcip
+      POSTGRES_USER: wcip
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    ports:
+      - "56100:5432"
+    volumes:
+      - wcip_pgdata:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wcip -d wcip -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  wcip_pgdata:
+    name: wcip_pgdata
+
+secrets:
+  db_password:
+    file: ./docker/secrets/db_password.txt
