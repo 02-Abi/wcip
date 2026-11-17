@@ -25,8 +25,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "django_filters",
     "common",
     "apps.employees",
+    "apps.skills",
 ]
 
 MIDDLEWARE = [
@@ -103,6 +105,6 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "common.pagination.StandardResultsPagination",
     "PAGE_SIZE": 25,
 }
