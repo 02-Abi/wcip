@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.skills",
     "apps.projects",
+    "apps.matching",
 ]
 
 MIDDLEWARE = [
