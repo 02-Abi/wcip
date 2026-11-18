@@ -1,8 +1,10 @@
-"""Employee and Department CRUD + filtering/search/ordering."""
+﻿"""Employee and Department CRUD + filtering/search/ordering."""
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+
+from apps.audit.services.mixins import AuditedModelViewSet
 
 from .models import Department, Employee
 from .serializers import DepartmentSerializer, EmployeeSerializer
@@ -18,10 +20,23 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
 
-class EmployeeViewSet(viewsets.ModelViewSet):
+class EmployeeViewSet(AuditedModelViewSet, viewsets.ModelViewSet):
     queryset = Employee.objects.select_related("department").all()
     serializer_class = EmployeeSerializer
     permission_classes = [IsAuthenticated]
+
+    audit_entity_type = "employee"
+    audit_fields = [
+        "employee_id",
+        "first_name",
+        "last_name",
+        "email",
+        "department_id",
+        "designation",
+        "joining_date",
+        "employment_status",
+        "total_experience_years",
+    ]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["department", "employment_status"]
