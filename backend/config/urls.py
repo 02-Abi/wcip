@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/", include("apps.projects.urls")),
     path("api/", include("apps.matching.urls")),
     path("api/", include("apps.gap_analysis.urls")),
+        path("api/", include("apps.recommendations.urls")),
 ]

@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.skills",
     "apps.projects",
     "apps.matching",
+        "apps.recommendations",
 ]
 
 MIDDLEWARE = [
