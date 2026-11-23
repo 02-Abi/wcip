@@ -1,0 +1,50 @@
+﻿import { Component, type ErrorInfo, type ReactNode } from "react"
+import { DataNetwork } from "./DataNetwork"
+
+type Props = { children?: ReactNode }
+type State = { crashed: boolean }
+
+class ErrorBoundary extends Component<Props, State> {
+  state: State = { crashed: false }
+
+  static getDerivedStateFromError(): State {
+    return { crashed: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[Scene3D] disabled due to error:", error.message)
+    console.warn(info.componentStack)
+  }
+
+  render() {
+    if (this.state.crashed) {
+      return <GradientFallback />
+    }
+    return this.props.children
+  }
+}
+
+function GradientFallback() {
+  return (
+    <div className="w-full h-full min-h-[480px] relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(59,130,246,0.20),transparent_55%)]" />
+      <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    </div>
+  )
+}
+
+export function Scene3D() {
+  return (
+    <ErrorBoundary>
+      <DataNetwork />
+    </ErrorBoundary>
+  )
+}
+

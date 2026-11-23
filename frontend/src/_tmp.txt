@@ -1,0 +1,668 @@
+﻿import { useMemo, useRef } from "react"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { Line, OrbitControls } from "@react-three/drei"
+import * as THREE from "three"
+
+type Node = { position: [number, number, number]; color: string }
+
+const PALETTE = ["#22D3EE", "#3B82F6", "#8B5CF6", "#60A5FA"]
+
+function Network({ count = 32 }: { count?: number }) {
+  const group = useRef<THREE.Group>(null)
+
+  const nodes: Node[] = useMemo(() => {
+    const out: Node[] = []
+    for (let i = 0; i < count; i++) {
+      const r = 2.2 + Math.random() * 1.4
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+      out.push({
+        position: [
+          r * Math.sin(phi) * Math.cos(theta),
+          r * Math.cos(phi),
+          r * Math.sin(phi) * Math.sin(theta),
+        ],
+        color: PALETTE[i % PALETTE.length],
+      })
+    }
+    return out
+  }, [count])
+
+  const edges = useMemo(() => {
+    const pairs: Array<[[number, number, number], [number, number, number]]> = []
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = new THREE.Vector3(...nodes[i].position)
+        const b = new THREE.Vector3(...nodes[j].position)
+        if (a.distanceTo(b) < 2.6) pairs.push([nodes[i].position, nodes[j].position])
+      }
+    }
+    return pairs.slice(0, 100)
+  }, [nodes])
+
+  useFrame((state, delta) => {
+    if (!group.current) return
+    group.current.rotation.y += delta * 0.08
+    group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.15) * 0.15
+  })
+
+  return (
+    <group ref={group}>
+      {nodes.map((n, i) => (
+        <mesh key={i} position={n.position}>
+          <sphereGeometry args={[0.07, 12, 12]} />
+          <meshStandardMaterial color={n.color} emissive={n.color} emissiveIntensity={1.4} />
+        </mesh>
+      ))}
+      {edges.map((e, i) => (
+        <Line
+          key={i}
+          points={[e[0], e[1]]}
+          color="#3B82F6"
+          lineWidth={0.7}
+          transparent
+          opacity={0.28}
+        />
+      ))}
+    </group>
+  )
+}
+
+export function DataNetwork() {
+  return (
+    <div style={{ width: "100%", height: "100%", minHeight: 480 }}>
+      <Canvas
+        dpr={[1, 2]}
+        camera={{ position: [0, 0, 7], fov: 50 }}
+        gl={{ antialias: true, alpha: true }}
+      >
+        <ambientLight intensity={0.7} />
+        <pointLight position={[5, 5, 5]} intensity={1.5} color="#60A5FA" />
+        <pointLight position={[-5, -3, -5]} intensity={1.0} color="#8B5CF6" />
+        <Network />
+        <OrbitControls
+          enableZoom={false}
+          enablePan={false}
+          autoRotate
+          autoRotateSpeed={0.5}
+          minPolarAngle={Math.PI / 3}
+          maxPolarAngle={(2 * Math.PI) / 3}
+        />
+      </Canvas>
+    </div>
+  )
+}
+
+import { Component, type ErrorInfo, type ReactNode } from "react"
+import { DataNetwork } from "./DataNetwork"
+
+type Props = { children?: ReactNode }
+type State = { crashed: boolean }
+
+class ErrorBoundary extends Component<Props, State> {
+  state: State = { crashed: false }
+
+  static getDerivedStateFromError(): State {
+    return { crashed: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[Scene3D] disabled due to error:", error.message)
+    console.warn(info.componentStack)
+  }
+
+  render() {
+    if (this.state.crashed) {
+      return <GradientFallback />
+    }
+    return this.props.children
+  }
+}
+
+function GradientFallback() {
+  return (
+    <div className="w-full h-full min-h-[480px] relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.18),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(59,130,246,0.20),transparent_55%)]" />
+      <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    </div>
+  )
+}
+
+export function Scene3D() {
+  return (
+    <ErrorBoundary>
+      <DataNetwork />
+    </ErrorBoundary>
+  )
+}
+
+import type { ButtonHTMLAttributes, ReactNode } from "react"
+import { cn } from "@/lib/cn"
+
+type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
+  children: ReactNode
+  variant?: "primary" | "ghost"
+  block?: boolean
+}
+
+export function Button({ children, variant = "primary", block, className, ...rest }: Props) {
+  return (
+    <button
+      {...rest}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed",
+        variant === "primary" && "bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2.5 px-4 hover:from-cyan-400 hover:to-blue-500 shadow-lg shadow-blue-600/20",
+        variant === "ghost" && "text-slate-300 hover:bg-white/5 px-3 py-2",
+        block && "w-full",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+import type { ReactNode } from "react"
+import { cn } from "@/lib/cn"
+
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("glass rounded-2xl p-5", className)}>
+      {children}
+    </div>
+  )
+}
+
+import type { InputHTMLAttributes } from "react"
+import { cn } from "@/lib/cn"
+
+type Props = InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }
+
+export function Input({ label, error, className, ...rest }: Props) {
+  return (
+    <div>
+      {label && <label className="block text-xs uppercase tracking-wider text-slate-300 mb-2">{label}</label>}
+      <input
+        {...rest}
+        className={cn(
+          "w-full bg-white/5 border rounded-lg px-3 py-2.5 text-sm placeholder:text-slate-400 outline-none transition",
+          error
+            ? "border-red-400/60 focus:ring-2 focus:ring-red-400/20"
+            : "border-white/10 focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/20",
+          className,
+        )}
+      />
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+import { createContext, useCallback, useContext, useMemo, useState } from "react"
+import { login as apiLogin, register as apiRegister, type RegisterPayload } from "@/api/auth"
+import { tokens } from "@/lib/tokens"
+
+type AuthCtx = {
+  isAuthenticated: boolean
+  login: (u: string, p: string) => Promise<void>
+  signup: (payload: RegisterPayload) => Promise<void>
+  logout: () => void
+}
+
+const Ctx = createContext<AuthCtx | null>(null)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isAuthenticated, setAuth] = useState(tokens.has())
+
+  const login = useCallback(async (u: string, p: string) => {
+    const { access, refresh } = await apiLogin(u, p)
+    tokens.set(access, refresh)
+    setAuth(true)
+  }, [])
+
+  const signup = useCallback(async (payload: RegisterPayload) => {
+    await apiRegister(payload)
+    const { access, refresh } = await apiLogin(payload.username, payload.password)
+    tokens.set(access, refresh)
+    setAuth(true)
+  }, [])
+
+  const logout = useCallback(() => {
+    tokens.clear()
+    setAuth(false)
+  }, [])
+
+  const value = useMemo(
+    () => ({ isAuthenticated, login, signup, logout }),
+    [isAuthenticated, login, signup, logout],
+  )
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+export function useAuth() {
+  const ctx = useContext(Ctx)
+  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>")
+  return ctx
+}
+
+import { useState, type FormEvent } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { useAuth } from "./AuthContext"
+import { Scene3D } from "@/components/three/Scene3D"
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+
+export function LoginPage() {
+  const { login } = useAuth()
+  const nav = useNavigate()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      await login(username.trim(), password)
+      nav("/", { replace: true })
+    } catch {
+      setError("Invalid username or password")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen grid lg:grid-cols-2 bg-[#0B1220] text-slate-100">
+      <div className="relative hidden lg:flex flex-col justify-between p-10 overflow-hidden">
+        <div className="absolute inset-0"><Scene3D /></div>
+        <div className="relative z-10">
+          <div className="text-2xl font-semibold tracking-tight">
+            <span className="text-cyan-400">W</span>CIP
+          </div>
+          <p className="mt-1 text-xs uppercase tracking-[0.3em] text-slate-300">
+            Workforce Capacity Intelligence
+          </p>
+        </div>
+        <div className="relative z-10 max-w-md">
+          <h1 className="text-4xl font-semibold leading-tight">
+            Know your workforce.<br />
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              Staff with confidence.
+            </span>
+          </h1>
+          <p className="mt-4 text-slate-300 text-sm leading-relaxed">
+            Match people to projects, spot skill gaps before they stall delivery,
+            and turn workforce data into decisions.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center p-6 bg-[#0E1628]">
+        <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6 glass rounded-2xl p-8 shadow-2xl">
+          <div>
+            <h2 className="text-2xl font-semibold">Welcome back</h2>
+            <p className="text-sm text-slate-300 mt-1">Sign in to your workspace</p>
+          </div>
+          <div className="space-y-4">
+            <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="your-username" required autoFocus />
+            <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+          </div>
+          {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
+          <Button type="submit" block disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
+          <p className="text-xs text-center text-slate-300">
+            Don't have an account? <Link to="/signup" className="text-cyan-400 hover:text-cyan-300">Create one</Link>
+          </p>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+import { Navigate, Outlet, useLocation } from "react-router-dom"
+import { useAuth } from "./AuthContext"
+
+export function RequireAuth() {
+  const { isAuthenticated } = useAuth()
+  const loc = useLocation()
+  if (!isAuthenticated) return <Navigate to="/login" state={{ from: loc }} replace />
+  return <Outlet />
+}
+
+import { useMemo, useState, type FormEvent } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { useAuth } from "./AuthContext"
+import { Scene3D } from "@/components/three/Scene3D"
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+
+const RULES = [
+  { id: "len", label: "At least 8 characters", test: (v: string) => v.length >= 8 },
+  { id: "num", label: "Contains a number", test: (v: string) => /\d/.test(v) },
+  { id: "alpha", label: "Contains a letter", test: (v: string) => /[A-Za-z]/.test(v) },
+  { id: "special", label: "Contains a symbol (!@#$…)", test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+]
+
+export function SignupPage() {
+  const { signup } = useAuth()
+  const nav = useNavigate()
+  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [password2, setPassword2] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const rules = useMemo(() => RULES.map((r) => ({ ...r, ok: r.test(password) })), [password])
+  const match = password.length > 0 && password === password2
+  const canSubmit = username.trim().length > 0 && email.includes("@") && rules.every((r) => r.ok) && match
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!canSubmit) { setError("Please satisfy all requirements."); return }
+    setBusy(true); setError(null)
+    try {
+      await signup({ username: username.trim(), email: email.trim(), password, password2 })
+      nav("/", { replace: true })
+    } catch (err: any) {
+      const data = err?.response?.data
+      if (data && typeof data === "object") {
+        const first = Object.values(data)[0]
+        setError(typeof first === "string" ? first : "Signup failed.")
+      } else setError("Signup failed. Please try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen grid lg:grid-cols-2 bg-[#0B1220] text-slate-100">
+      <div className="flex items-center justify-center p-6 bg-[#0E1628] order-2 lg:order-1">
+        <form onSubmit={onSubmit} className="w-full max-w-sm space-y-5 glass rounded-2xl p-8 shadow-2xl">
+          <div>
+            <h2 className="text-2xl font-semibold">Create your account</h2>
+            <p className="text-sm text-slate-300 mt-1">Get started with WCIP</p>
+          </div>
+          <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <div>
+            <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <ul className="mt-2 space-y-1">
+              {rules.map((r) => (
+                <li key={r.id} className={`text-xs ${r.ok ? "text-emerald-400" : "text-slate-400"}`}>
+                  {r.ok ? "✓" : "○"} {r.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Input label="Confirm password" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} error={password2 && !match ? "Passwords do not match" : undefined} required />
+          {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
+          <Button type="submit" block disabled={busy || !canSubmit}>{busy ? "Creating…" : "Create account"}</Button>
+          <p className="text-xs text-center text-slate-300">
+            Already have an account? <Link to="/login" className="text-cyan-400 hover:text-cyan-300">Sign in</Link>
+          </p>
+        </form>
+      </div>
+      <div className="hidden lg:block relative overflow-hidden order-1 lg:order-2">
+        <div className="absolute inset-0"><Scene3D /></div>
+        <div className="relative z-10 h-full flex flex-col items-center justify-center p-10 text-center">
+          <div className="text-4xl font-semibold"><span className="text-cyan-400">W</span>CIP</div>
+          <p className="mt-3 text-slate-300 text-sm max-w-xs">
+            Join your organization's workforce intelligence platform.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { useAuth } from "@/features/auth/AuthContext"
+
+const NAV = [
+  { to: "/", label: "Dashboard", end: true },
+  { to: "/employees", label: "Employees" },
+  { to: "/skills", label: "Skills" },
+  { to: "/projects", label: "Projects" },
+  { to: "/analytics", label: "Analytics" },
+  { to: "/notifications", label: "Notifications" },
+]
+
+export function AppShell() {
+  const { logout } = useAuth()
+  const nav = useNavigate()
+  return (
+    <div className="min-h-screen flex bg-[#0B1220] text-slate-100">
+      <aside className="w-60 bg-[#0A0F1C] border-r border-white/5 flex flex-col">
+        <div className="px-5 py-5 border-b border-white/5">
+          <div className="text-lg font-semibold tracking-tight">
+            <span className="text-cyan-400">W</span>CIP
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400 mt-1">Workforce Intelligence</p>
+        </div>
+        <nav className="flex-1 py-3">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              className={({ isActive }) =>
+                `block mx-2 my-0.5 px-3 py-2 rounded-md text-sm transition ${
+                  isActive
+                    ? "bg-white/[0.06] text-cyan-300"
+                    : "text-slate-300 hover:text-slate-200 hover:bg-white/[0.04]"
+                }`
+              }
+            >
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
+        <button
+          onClick={() => { logout(); nav("/login", { replace: true }) }}
+          className="mx-2 mb-3 px-3 py-2 text-sm text-left text-slate-300 hover:text-white hover:bg-white/[0.04] rounded-md border-t border-white/5"
+        >
+          Sign out
+        </button>
+      </aside>
+      <main className="flex-1 p-8 overflow-auto">
+        <Outlet />
+      </main>
+    </div>
+  )
+}
+
+import { useQuery } from "@tanstack/react-query"
+import { getOverview, type ProficiencyBand } from "@/api/analytics"
+import { Card } from "@/components/ui/Card"
+
+const BANDS: ProficiencyBand[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"]
+
+function StatCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <Card>
+      <div className="text-xs uppercase tracking-wide text-slate-300">{label}</div>
+      <div className="text-3xl font-semibold mt-1 text-white">{value}</div>
+    </Card>
+  )
+}
+
+export function Dashboard() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["analytics", "overview"],
+    queryFn: getOverview,
+  })
+
+  if (isLoading) return <p className="text-slate-300">Loading dashboard…</p>
+  if (error || !data) return <p className="text-red-400">Failed to load dashboard.</p>
+
+  const total = Object.values(data.proficiency_by_band).reduce((a, n) => a + n, 0) || 1
+
+  return (
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-slate-300 text-sm">Workforce snapshot across the organization.</p>
+      </header>
+
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Employees" value={data.headcount} />
+        <StatCard label="Departments" value={data.department_count} />
+        <StatCard label="Projects" value={data.project_count} />
+        <StatCard label="Active projects" value={data.active_project_count} />
+      </section>
+
+      <section className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <h2 className="font-semibold mb-4">Proficiency distribution</h2>
+          <ul className="space-y-3">
+            {BANDS.map((b) => {
+              const n = data.proficiency_by_band[b] ?? 0
+              const pct = Math.round((n / total) * 100)
+              return (
+                <li key={b}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>{b}</span>
+                    <span className="text-slate-300">{n} ({pct}%)</span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded">
+                    <div className="h-2 bg-gradient-to-r from-cyan-400 to-blue-500 rounded" style={{ width: `${pct}%` }} />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold mb-4">Top skills</h2>
+          <table className="w-full text-sm">
+            <thead className="text-slate-300 text-left">
+              <tr><th className="pb-2">Skill</th><th className="pb-2 text-right">Employees</th></tr>
+            </thead>
+            <tbody>
+              {data.top_skills.map((s) => (
+                <tr key={s.skill_id} className="border-t border-white/5">
+                  <td className="py-2">{s.skill_name}</td>
+                  <td className="py-2 text-right">{s.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </section>
+
+      <section className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <h2 className="font-semibold mb-4">Top gaps across projects</h2>
+          {data.top_gaps.length === 0 ? (
+            <p className="text-sm text-slate-300">No mandatory gaps.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {data.top_gaps.map((g) => (
+                <li key={g.skill_id} className="flex justify-between border-b border-white/5 pb-2 last:border-0">
+                  <span>{g.skill_name}</span>
+                  <span className="text-slate-300">{g.gap_count} gap(s)</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold mb-4">Departments</h2>
+          <table className="w-full text-sm">
+            <thead className="text-slate-300 text-left">
+              <tr>
+                <th className="pb-2">Department</th>
+                <th className="pb-2 text-right">Headcount</th>
+                <th className="pb-2 text-right">Avg exp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.departments.map((d) => (
+                <tr key={d.department_id} className="border-t border-white/5">
+                  <td className="py-2">{d.department_name}</td>
+                  <td className="py-2 text-right">{d.headcount}</td>
+                  <td className="py-2 text-right">{d.avg_experience_years}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </section>
+    </div>
+  )
+}
+
+export function Placeholder({ name }: { name: string }) {
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold mb-2">{name}</h1>
+      <div className="glass rounded-2xl p-10 text-center text-slate-300">
+        <p>This page is coming in the next round.</p>
+        <p className="text-xs mt-2">The backend for it is already built and tested.</p>
+      </div>
+    </div>
+  )
+}
+
+import { createBrowserRouter, Navigate } from "react-router-dom"
+import { RequireAuth } from "@/features/auth/RequireAuth"
+import { LoginPage } from "@/features/auth/LoginPage"
+import { SignupPage } from "@/features/auth/SignupPage"
+import { AppShell } from "@/layouts/AppShell"
+import { Dashboard } from "@/pages/Dashboard"
+import { Placeholder } from "@/pages/Placeholder"
+
+export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignupPage /> },
+  {
+    element: <RequireAuth />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { index: true, element: <Dashboard /> },
+          { path: "employees", element: <Placeholder name="Employees" /> },
+          { path: "skills", element: <Placeholder name="Skills" /> },
+          { path: "projects", element: <Placeholder name="Projects" /> },
+          { path: "analytics", element: <Placeholder name="Analytics" /> },
+          { path: "notifications", element: <Placeholder name="Notifications" /> },
+        ],
+      },
+    ],
+  },
+  { path: "*", element: <Navigate to="/login" replace /> },
+])
+
+import React from "react"
+import ReactDOM from "react-dom/client"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { RouterProvider } from "react-router-dom"
+import { AuthProvider } from "@/features/auth/AuthContext"
+import { router } from "@/router"
+import "./index.css"
+
+const qc = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+})
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={qc}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>
+  </React.StrictMode>,
+)
+

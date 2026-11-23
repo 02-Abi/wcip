@@ -103,9 +103,7 @@ def gaps_analytics(request):
     reports = []
     for project in active:
         reqs = _requirements_for(project)
-        for emp in Employee.objects.filter(
-            employment_status=Employee.Status.ACTIVE
-        ):
+        for emp in Employee.objects.all(): # Check gaps for ALL employees
             gap = employee_gap(reqs, _held_for(emp))
             reports.append(
                 {
@@ -148,9 +146,7 @@ def overview_analytics(request):
     reports = []
     for project in active:
         reqs = _requirements_for(project)
-        for emp in Employee.objects.filter(
-            employment_status=Employee.Status.ACTIVE
-        ):
+        for emp in Employee.objects.all():
             reports.append(
                 {
                     "project_id": str(project.id),
@@ -162,9 +158,7 @@ def overview_analytics(request):
 
     return Response(
         {
-            "headcount": Employee.objects.filter(
-                employment_status=Employee.Status.ACTIVE
-            ).count(),
+            "headcount": Employee.objects.count(), # <-- FIXED: Shows ALL employees
             "department_count": Department.objects.count(),
             "project_count": Project.objects.count(),
             "active_project_count": active.count(),
