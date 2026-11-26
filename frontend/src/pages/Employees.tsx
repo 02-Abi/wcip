@@ -1,16 +1,18 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getEmployees, getDepartments, createEmployee, updateEmployee, deleteEmployee, type Employee } from "@/api/employees"
 import { Card } from "@/components/ui/Card"
+import { useAuth } from "@/features/auth/AuthContext"
 
 export function Employees() {
+  const { isHR } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  // Form State
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
@@ -28,10 +30,9 @@ export function Employees() {
     queryFn: getDepartments,
   })
 
-  // Invalidate BOTH lists so Dashboard updates instantly
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["employees"] })
-    queryClient.invalidateQueries({ queryKey: ["analytics", "overview"] }) // <-- Updates Dashboard!
+    queryClient.invalidateQueries({ queryKey: ["analytics"] })
   }
 
   const createMutation = useMutation({
@@ -62,12 +63,8 @@ export function Employees() {
       employment_status: "ACTIVE",
       total_experience_years: parseFloat(experience),
     }
-
-    if (editingId) {
-      updateMutation.mutate(payload)
-    } else {
-      createMutation.mutate(payload)
-    }
+    if (editingId) updateMutation.mutate(payload)
+    else createMutation.mutate(payload)
   }
 
   function openCreate() {
@@ -81,7 +78,7 @@ export function Employees() {
     setFirstName(emp.first_name)
     setLastName(emp.last_name)
     setEmail(emp.email)
-    setDepartment(emp.department) // assumes department is the UUID
+    setDepartment(emp.department)
     setDesignation(emp.designation)
     setExperience(emp.total_experience_years.toString())
     setIsModalOpen(true)
@@ -99,9 +96,11 @@ export function Employees() {
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Employees</h1>
           <p className="text-cyan-100 font-medium mt-1">Manage your organization's workforce.</p>
         </div>
-        <button onClick={openCreate} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-extrabold text-sm hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/40">
-          + Add Employee
-        </button>
+        {isHR && (
+          <button onClick={openCreate} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-extrabold text-sm hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/40">
+            + Add Employee
+          </button>
+        )}
       </header>
 
       <Card className="p-0 overflow-hidden">
@@ -130,8 +129,13 @@ export function Employees() {
                   <td className="px-6 py-4 text-slate-300 font-medium">{emp.designation}</td>
                   <td className="px-6 py-4 text-cyan-400 font-bold">{emp.total_experience_years} yrs</td>
                   <td className="px-6 py-4 text-right space-x-3">
-                    <button onClick={() => openEdit(emp)} className="text-cyan-400 hover:text-cyan-300 font-bold text-xs uppercase">Edit</button>
-                    <button onClick={() => { if(confirm("Are you sure?")) deleteMutation.mutate(emp.id) }} className="text-red-400 hover:text-red-300 font-bold text-xs uppercase">Delete</button>
+                    <Link to={`/employees/${emp.id}/skills`} className="text-cyan-400 hover:text-cyan-300 font-bold text-xs uppercase">Skills</Link>
+                    {isHR && (
+                      <>
+                        <button onClick={() => openEdit(emp)} className="text-blue-400 hover:text-blue-300 font-bold text-xs uppercase">Edit</button>
+                        <button onClick={() => { if(confirm("Are you sure?")) deleteMutation.mutate(emp.id) }} className="text-red-400 hover:text-red-300 font-bold text-xs uppercase">Delete</button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
